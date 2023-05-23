@@ -54,3 +54,16 @@ public class Fluent {
     }
 
 }
+
+    private static void waitUntilPageLoadedAndHomeButtonVisible(WebDriver driver) {
+        FluentWait<WebDriver> wait = new FluentWait<>(driver)
+                .pollingEvery(Duration.ofMillis(500))
+                .withTimeout(Duration.ofSeconds(10));
+
+        wait.until((Function<WebDriver, Boolean>) webDriver -> {
+            boolean isPageLoaded = ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete");
+            WebElement homeButton = webDriver.findElement(By.id("login-input")); // Adjust the locator as per your application
+            boolean isHomeButtonVisible = homeButton.isDisplayed();
+            return isPageLoaded && isHomeButtonVisible;
+        });
+    }
