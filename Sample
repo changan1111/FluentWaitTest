@@ -1,0 +1,56 @@
+package com.healenium;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.FluentWait;
+
+import io.github.bonigarcia.wdm.WebDriverManager;
+
+import java.time.Duration;
+import java.util.function.Function;
+
+public class Fluent {
+
+    public static void main(String[] args) {
+        // Set the path to the ChromeDriver executable
+		WebDriverManager.chromedriver().setup();
+
+        // Configure Chrome options
+        ChromeOptions options = new ChromeOptions();
+        // Add any necessary options, such as disabling extensions or setting preferences
+
+        // Create a new ChromeDriver instance
+        WebDriver driver = new ChromeDriver(options);
+
+        // Maximize the browser window
+        driver.manage().window().maximize();
+
+        // Navigate to your single-page application
+        driver.get("https://www.example.com/");
+
+        // Define FluentWait with a polling interval and timeout duration
+        FluentWait<WebDriver> wait = new FluentWait<>(driver)
+                .pollingEvery(Duration.ofMillis(500))
+                .withTimeout(Duration.ofSeconds(10));
+
+        // Wait until the page is fully loaded and the home button is visible
+        wait.until((Function<WebDriver, Boolean>) webDriver -> {
+            boolean isPageLoaded = ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete");
+            WebElement homeButton = webDriver.findElement(By.id("login-input")); // Adjust the locator as per your application
+            boolean isHomeButtonVisible = homeButton.isDisplayed();
+            return isPageLoaded && isHomeButtonVisible;
+        });
+
+        // Calculate the page load time
+        long loadTime = (Long) ((JavascriptExecutor) driver).executeScript("return window.performance.timing.loadEventEnd - window.performance.timing.navigationStart");
+        System.out.println("Page Load Time: " + loadTime + " milliseconds");
+
+        // Close the browser
+        driver.quit();
+    }
+
+}
