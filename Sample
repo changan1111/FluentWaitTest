@@ -67,3 +67,10 @@ public class Fluent {
             return isPageLoaded && isHomeButtonVisible;
         });
     }
+
+
+
+wait.until(ExpectedConditions.and(
+                webDriver -> ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete"),
+                ExpectedConditions.visibilityOfElementLocated(locator)
+        ));
