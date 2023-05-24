@@ -74,3 +74,20 @@ wait.until(ExpectedConditions.and(
                 webDriver -> ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete"),
                 ExpectedConditions.visibilityOfElementLocated(locator)
         ));
+
+
+
+
+    private static double getSPALoadTime(WebDriver driver) {
+        JavascriptExecutor jsExecutor = (JavascriptExecutor) driver;
+
+        // Start the timer
+        jsExecutor.executeScript("console.time('PageLoad');");
+
+        // Perform the necessary actions to load the new content in your SPA
+
+        // Stop the timer and capture the load time
+        double loadTime = (double) jsExecutor.executeScript("console.timeEnd('PageLoad'); return window.performance.now();");
+
+        return loadTime;
+    }
