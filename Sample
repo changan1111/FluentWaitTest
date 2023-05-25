@@ -91,3 +91,110 @@ wait.until(ExpectedConditions.and(
 
         return loadTime;
     }
+
+
+
+package com.healenium;
+
+import com.aventstack.extentreports.ExtentReports;
+import com.aventstack.extentreports.ExtentTest;
+import com.aventstack.extentreports.reporter.ExtentSparkReporter;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+public class ExtentReportUtils {
+    private static ExtentReports extent;
+    private static ThreadLocal<ExtentTest> extentTest = new ThreadLocal<>();
+    private static String reportPath;
+
+    public static void initializeExtentReport() {
+        if (reportPath == null) {
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+            String projectDir = System.getProperty("user.dir");
+            reportPath = projectDir + File.separator + "extent_report_" + timestamp + ".html";
+            ExtentSparkReporter htmlReporter = new ExtentSparkReporter(reportPath);
+            extent = new ExtentReports();
+            extent.attachReporter(htmlReporter);
+        }
+    }
+
+    public static ExtentTest createTest(String testName) {
+        ExtentTest test = extent.createTest(testName);
+        extentTest.set(test);
+        return test;
+    }
+
+    public static ExtentTest getCurrentTest() {
+        return extentTest.get();
+    }
+
+    public static void flushReport() {
+        extent.flush();
+    }
+}
+
+
+package com.healenium;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
+import com.aventstack.extentreports.ExtentTest;
+
+import java.io.File;
+import java.io.IOException;
+
+public class MyTestCase {
+    private ExtentTest test;
+    private WebDriver driver;
+
+    @BeforeClass
+    public void setup() {
+        // Initialize Extent Report before starting the test case
+        ExtentReportUtils.initializeExtentReport();
+
+        // Create a new test instance
+        test = ExtentReportUtils.createTest("My Test");
+
+        // Initialize WebDriver (e.g., ChromeDriver, FirefoxDriver, etc.)
+        driver = new ChromeDriver();
+    }
+
+    @Test
+    public void testMethod() throws IOException {
+        // Perform test assertions and log the results
+        test.info("Starting testMethod");
+        // ... Perform your test steps and assertions ...
+        test.pass("testMethod Passed");
+
+        // Capture screenshot
+        File screenshotFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+
+        // Convert screenshot to Base64
+        String base64Screenshot = ExtentReportUtils.convertScreenshotToBase64(screenshotFile);
+
+        // Attach screenshot to the Extent Report
+        test.addScreenCaptureFromBase64String(base64Screenshot);
+
+        // Attach additional logs or details if needed
+        // ...
+    }
+
+    @AfterMethod
+    public void tearDown() {
+        // Quit WebDriver
+        driver.quit();
+    }
+
+    @AfterClass
+    public void finalizeReport() {
+        // Flush the Extent Report after all test cases finish
+        ExtentReportUtils.flushReport();
+    }
+}
