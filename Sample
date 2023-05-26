@@ -231,3 +231,46 @@ public class SPALoadTimeTestListener implements AfterTestExecutionCallback {
     }
 }
 
+
+
+
+
+
+import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class SPALoadTimeTestListener implements AfterTestExecutionCallback {
+
+    private static ThreadLocal<Double> startTime = new ThreadLocal<>();
+    private static List<PageLoadTime> pageLoadTimes = new ArrayList<>();
+
+    @Override
+    public void afterTestExecution(ExtensionContext context) {
+        double loadTime = calculateLoadTime();
+        String pageName = getPageNameFromTestMethod(context);
+        pageLoadTimes.add(new PageLoadTime(pageName, loadTime));
+        System.out.println("Page: " + pageName + " - Load Time: " + loadTime + " milliseconds");
+    }
+
+    private double calculateLoadTime() {
+        double endTime = System.currentTimeMillis();
+        double startTimeValue = startTime.get();
+        startTime.remove();
+        return endTime - startTimeValue;
+    }
+
+    public static void startTimer() {
+        startTime.set(System.currentTimeMillis());
+    }
+
+    private String getPageNameFromTestMethod(ExtensionContext context) {
+        return context.getRequiredTestMethod().getName(); // Modify this to get the page name from your test method
+    }
+
+    public static List<PageLoadTime> getPageLoadTimes() {
+        return pageLoadTimes;
+    }
+}
