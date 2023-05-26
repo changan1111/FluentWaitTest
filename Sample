@@ -274,3 +274,23 @@ public class SPALoadTimeTestListener implements AfterTestExecutionCallback {
         return pageLoadTimes;
     }
 }
+
+
+
+public class SPALoadTimeCapture {
+
+    private static Map<Long, Long> startTimes = new ConcurrentHashMap<>();
+
+    public static void startTimer() {
+        long threadId = Thread.currentThread().getId();
+        startTimes.put(threadId, System.currentTimeMillis());
+    }
+
+    public static void printLoadTime(String pageName) {
+        long threadId = Thread.currentThread().getId();
+        long endTime = System.currentTimeMillis();
+        long startTimeValue = startTimes.get(threadId);
+        long loadTime = endTime - startTimeValue;
+        System.out.println("Page: " + pageName + " - Load Time: " + loadTime + " milliseconds");
+    }
+}
