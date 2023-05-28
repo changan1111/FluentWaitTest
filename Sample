@@ -294,3 +294,69 @@ public class SPALoadTimeCapture {
         System.out.println("Page: " + pageName + " - Load Time: " + loadTime + " milliseconds");
     }
 }
+
+
+
+
+import java.time.LocalDateTime;
+
+public class DateRangeComparison {
+    public static boolean isDateInRange(LocalDateTime date, LocalDateTime startDate, LocalDateTime endDate) {
+        return date.isAfter(startDate) && date.isBefore(endDate);
+    }
+
+    public static void main(String[] args) {
+        // Obtain the current date and time
+        LocalDateTime currentDateTime = LocalDateTime.now();
+
+        // Define the range using the current date and time
+        LocalDateTime rangeStart = currentDateTime;
+        LocalDateTime rangeEnd = currentDateTime.plusDays(7);
+
+        // Obtain the date you want to compare as a string
+        String dateToCompareString = "28/05/2023 07:39:00";
+
+        // Parse the date string into a LocalDateTime object
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+        LocalDateTime dateToCompare = LocalDateTime.parse(dateToCompareString, formatter);
+
+        // Compare the date with the range
+        boolean inRange = isDateInRange(dateToCompare, rangeStart, rangeEnd);
+
+        // Print the result
+        if (inRange) {
+            System.out.println("The date is within the range.");
+        } else {
+            System.out.println("The date is not within the range.");
+        }
+    }
+}
+import java.time.LocalDateTime;
+
+public class DateRangeComparison {
+    public static boolean isDateInRange(LocalDateTime date, LocalDateTime startDate, LocalDateTime endDate) {
+        return date.isAfter(startDate) && date.isBefore(endDate);
+    }
+
+    public static void main(String[] args) {
+        if (args.length < 3) {
+            System.out.println("Please provide rangeStart, rangeEnd, and dateToCompare as arguments.");
+            return;
+        }
+
+        // Parse the rangeStart, rangeEnd, and dateToCompare from command line arguments
+        LocalDateTime rangeStart = LocalDateTime.parse(args[0]);
+        LocalDateTime rangeEnd = LocalDateTime.parse(args[1]);
+        LocalDateTime dateToCompare = LocalDateTime.parse(args[2]);
+
+        // Compare the date with the range
+        boolean inRange = isDateInRange(dateToCompare, rangeStart, rangeEnd);
+
+        // Print the result
+        if (inRange) {
+            System.out.println("The date is within the range.");
+        } else {
+            System.out.println("The date is not within the range.");
+        }
+    }
+}
