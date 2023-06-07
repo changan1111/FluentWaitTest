@@ -1,0 +1,75 @@
+const express = require('express');
+const app = express();
+const port = 3000;
+const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
+const sql = require('mssql');
+
+// Database configuration
+const dbConfig = {
+  user: 'your_username',
+  password: 'your_password',
+  server: 'your_server',
+  database: 'your_database',
+  options: {
+    trustServerCertificate: true
+  }
+};
+
+// Chart configuration
+const chartConfig = {
+  type: 'line',
+  data: {
+    labels: [], // Array of dates
+    datasets: [] // Array of datasets for each page
+  },
+  options: {
+    // Chart options
+  }
+};
+
+// Fetch the page load times from the SQL Server database
+async function getPageLoadTimes() {
+  try {
+    await sql.connect(dbConfig);
+
+    const result = await sql.query('SELECT * FROM PageLoadTimes');
+
+    return result.recordset;
+  } catch (error) {
+    console.error('Error fetching page load times:', error);
+    throw error;
+  } finally {
+    await sql.close();
+  }
+}
+
+// Route for generating the chart
+app.get('/', async (req, res) => {
+  try {
+    const pageLoadTimes = await getPageLoadTimes();
+
+    // Rest of the code to generate the chart
+    // ...
+
+    // Generate the chart image
+    const width = 800; // Width of the chart image
+    const height = 400; // Height of the chart image
+    const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
+    const image = await chartJSNodeCanvas.renderToBuffer(chartConfig);
+
+    // Set the response headers for the chart image
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', image.length);
+
+    // Send the chart image as the response
+    res.send(image);
+  } catch (error) {
+    console.error('Error generating chart:', error);
+    res.status(500).send('Error generating chart');
+  }
+});
+
+// Start the server
+app.listen(port, () => {
+  console.log(`Server is listening on http://localhost:${port}`);
+});
