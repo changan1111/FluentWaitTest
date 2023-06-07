@@ -3,22 +3,17 @@ keytool -import -trustcacerts -alias <alias_name> -file <path_to_certificate> -k
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import pymysql
+from sqlalchemy import create_engine
 
-# Connect to the database
-connection = pymysql.connect(
-    host='your_host',
-    user='your_user',
-    password='your_password',
-    database='your_database'
-)
+# Connect to the SQL Server database using SQLAlchemy
+engine = create_engine('mssql+pyodbc://your_username:your_password@your_server_name/your_database_name')
 
 # Execute a SQL query to retrieve the load time data
 query = "SELECT page_name, load_time FROM your_table_name"
-df = pd.read_sql(query, connection)
+df = pd.read_sql(query, engine)
 
 # Close the database connection
-connection.close()
+engine.dispose()
 
 # Group the data by page_name and calculate the average load time for each page
 average_load_times = df.groupby('page_name')['load_time'].mean()
@@ -30,4 +25,3 @@ plt.ylabel('Average Load Time (ms)')
 plt.title('Average Load Time for Each Page')
 plt.xticks(rotation=45)
 plt.show()
-
