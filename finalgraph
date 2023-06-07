@@ -23,7 +23,27 @@ const chartConfig = {
     datasets: [] // Array of datasets for each page
   },
   options: {
-    // Chart options
+    responsive: true,
+    title: {
+      display: true,
+      text: 'Page Load Time'
+    },
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: 'Date'
+        }
+      },
+      y: {
+        display: true,
+        title: {
+          display: true,
+          text: 'Load Time (ms)'
+        }
+      }
+    }
   }
 };
 
@@ -43,13 +63,52 @@ async function getPageLoadTimes() {
   }
 }
 
+// Generate a random color
+function getRandomColor() {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+}
+
 // Route for generating the chart
 app.get('/', async (req, res) => {
   try {
     const pageLoadTimes = await getPageLoadTimes();
 
-    // Rest of the code to generate the chart
-    // ...
+    // Prepare the chart data
+    const dates = []; // Array of dates
+    const datasets = []; // Array of datasets for each page
+
+    // Iterate over the page load times and populate the dates and datasets arrays
+    pageLoadTimes.forEach((entry) => {
+      const date = entry.timestamp.toISOString().split('T')[0];
+      const loadTime = entry.loadTime;
+
+      // Find the index of the date in the dates array
+      const dateIndex = dates.indexOf(date);
+
+      // If the date is not found, add it to the dates array and create a new dataset
+      if (dateIndex === -1) {
+        dates.push(date);
+        datasets.push({
+          label: entry.pageName,
+          data: [loadTime],
+          backgroundColor: getRandomColor(),
+          borderColor: getRandomColor(),
+          fill: false
+        });
+      } else {
+        // If the date is found, update the existing dataset
+        datasets[dateIndex].data.push(loadTime);
+      }
+    });
+
+    // Update the chart configuration with the prepared data
+    chartConfig.data.labels = dates;
+    chartConfig.data.datasets = datasets;
 
     // Generate the chart image
     const width = 800; // Width of the chart image
