@@ -4,25 +4,20 @@ app.get('/', async (req, res) => {
     const pageLoadTimes = await getPageLoadTimes();
 
     // Prepare the chart data
-    const runLabels = []; // Array of run labels
-    const datasets = []; // Array of datasets for each page
+    const pageData = {}; // Object to store data for each page
 
-    // Iterate over the page load times and populate the runLabels and datasets arrays
-    pageLoadTimes.forEach((entry, index) => {
-      const runLabel = `Run ${index + 1}`;
+    // Iterate over the page load times and populate the pageData object
+    pageLoadTimes.forEach((entry) => {
+      const pageName = entry.PageName;
+      const loadTime = entry.LoadTime;
 
-      // Add the run label to the runLabels array
-      runLabels.push(runLabel);
+      // If the page data does not exist, create a new array
+      if (!pageData[pageName]) {
+        pageData[pageName] = [];
+      }
 
-      // Create a new dataset for the page
-      const dataset = {
-        label: entry.PageName,
-        data: [entry.LoadTime],
-        backgroundColor: getRandomColor(),
-        borderColor: getRandomColor(),
-        fill: false
-      };
-      datasets.push(dataset);
+      // Add the load time to the page data array
+      pageData[pageName].push(loadTime);
     });
 
     // Create the HTML page with the chart
@@ -40,8 +35,16 @@ app.get('/', async (req, res) => {
         const chartConfig = {
           type: 'bar',
           data: {
-            labels: ${JSON.stringify(runLabels)},
-            datasets: ${JSON.stringify(datasets)}
+            labels: [],
+            datasets: ${JSON.stringify(
+              Object.entries(pageData).map(([pageName, loadTimes]) => ({
+                label: pageName,
+                data: loadTimes,
+                backgroundColor: getRandomColor(),
+                borderColor: getRandomColor(),
+                fill: false
+              }))
+            )}
           },
           options: {
             responsive: true,
@@ -51,11 +54,7 @@ app.get('/', async (req, res) => {
             },
             scales: {
               x: {
-                display: true,
-                title: {
-                  display: true,
-                  text: 'Run'
-                }
+                display: false // Hide x-axis labels
               },
               y: {
                 display: true,
