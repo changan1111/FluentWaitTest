@@ -14,13 +14,30 @@ app.get('/', async (req, res) => {
     });
 
     // Prepare the chart data
-    const datasets = Object.entries(pageGroups).map(([pageName, loadTimes]) => ({
-      label: pageName,
-      data: loadTimes.map((loadTime, index) => ({ x: index + 1, y: loadTime })),
-      backgroundColor: getRandomColor(),
-      borderColor: getRandomColor(),
-      fill: false
-    }));
+    const datasets = [];
+    let maxPageCount = 0;
+
+    Object.entries(pageGroups).forEach(([pageName, loadTimes]) => {
+      const pageCount = loadTimes.length;
+      if (pageCount > maxPageCount) {
+        maxPageCount = pageCount;
+      }
+
+      const bars = loadTimes.map((loadTime, index) => ({
+        x: index + 1,
+        y: loadTime,
+      }));
+
+      const dataset = {
+        label: pageName,
+        data: bars,
+        backgroundColor: getRandomColor(),
+        borderColor: getRandomColor(),
+        fill: false,
+      };
+
+      datasets.push(dataset);
+    });
 
     // Create the HTML page with the chart
     const chartHtml = `
@@ -37,7 +54,7 @@ app.get('/', async (req, res) => {
         const chartConfig = {
           type: 'bar',
           data: {
-            labels: [],
+            labels: Array.from({ length: maxPageCount }, (_, i) => i + 1),
             datasets: ${JSON.stringify(datasets)}
           },
           options: {
@@ -48,7 +65,11 @@ app.get('/', async (req, res) => {
             },
             scales: {
               x: {
-                display: false
+                display: true,
+                title: {
+                  display: true,
+                  text: 'Run Number'
+                }
               },
               y: {
                 display: true,
