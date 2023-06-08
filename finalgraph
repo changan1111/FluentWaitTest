@@ -20,7 +20,21 @@ var dbConfig = {
   },
 };
 
-// Fetch the page load times from the SQL Server database
+// Fetch the distinct page names from the SQL Server database
+async function getPageNames() {
+  try {
+    await sql.connect(dbConfig);
+
+    const result = await sql.query('SELECT DISTINCT PageName FROM Performance');
+
+    return result.recordset;
+  } catch (error) {
+    console.error('Error fetching page names:', error);
+    throw error;
+  }
+}
+
+// Fetch the page load times from the SQL Server database for the selected page
 async function getPageLoadTimes(pageName) {
   try {
     await sql.connect(dbConfig);
@@ -52,12 +66,13 @@ function getRandomColor() {
 // Route for rendering the chart page
 app.get('/', async (req, res) => {
   try {
-    const pageName = req.query.page;
+    const pageNames = await getPageNames();
+    const selectedPage = req.query.page || pageNames[0].PageName;
 
-    const pageLoadTimes = await getPageLoadTimes(pageName);
+    const pageLoadTimes = await getPageLoadTimes(selectedPage);
 
     // Prepare the chart data
-    const datasets = []; // Array of datasets for each page
+    const datasets = []; // Array of datasets for the selected page
 
     // Iterate over the page load times and populate the datasets array
     pageLoadTimes.forEach((entry) => {
@@ -71,7 +86,7 @@ app.get('/', async (req, res) => {
       datasets.push(dataset);
     });
 
-    // Create the HTML page with the chart
+    // Create the HTML page with the chart and page selection options
     const chartHtml = `
     <!DOCTYPE html>
     <html>
@@ -80,22 +95,32 @@ app.get('/', async (req, res) => {
       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     </head>
     <body>
+      <div>
+        <h2>Select a Page:</h2>
+        <select id="pageSelect" onchange="updateChart()">
+          ${pageNames
+            .map((page) => `<option value="${page.PageName}" ${page.PageName === selectedPage ? 'selected' : ''}>${page.PageName}</option>`)
+            .join('')}
+        </select>
+      </div>
       <canvas id="chartCanvas"></canvas>
       <script>
+        function updateChart() {
+          const selectedPage = document.getElementById('pageSelect').value;
+          const url = new URL(window.location.href);
+          url.searchParams.set('page', selectedPage);
+          window.location.href = url.toString();
+        }
+
         const ctx = document.getElementById('chartCanvas').getContext('2d');
         const chartConfig = {
           type: 'bar',
           data: {
-            labels: [''],
+            labels: ['Load Time (ms)'],
             datasets: ${JSON.stringify(datasets)},
           },
           options: {
             responsive: true,
-            plugins: {
-              legend: {
-                display: false,
-              },
-            },
             title: {
               display: true,
               text: 'Page Load Time',
