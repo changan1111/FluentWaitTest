@@ -16,52 +16,81 @@ const dbConfig = {
   options: {
     encrypt: true,
     enableArithAbort: true,
-    trustServerCertificate: true
-  }
+    trustServerCertificate: true,
+  },
 };
 
-// Fetch the page names from the SQL Server database
+// Fetch the distinct page names from the SQL Server database
 async function getPageNames() {
   try {
     await sql.connect(dbConfig);
 
     const result = await sql.query('SELECT DISTINCT PageName FROM Performance');
 
-    return result.recordset.map((entry) => entry.PageName);
+    return result.recordset;
   } catch (error) {
     console.error('Error fetching page names:', error);
     throw error;
-  } finally {
-    await sql.close();
   }
 }
 
-// Fetch the page load times for a specific page from the SQL Server database
+// Fetch the page load times from the SQL Server database for the selected page
 async function getPageLoadTimes(pageName) {
   try {
     await sql.connect(dbConfig);
 
-    const result = await sql.query(`SELECT * FROM Performance WHERE PageName = '${pageName}'`);
+    let query = 'SELECT * FROM Performance';
+    if (pageName) {
+      query += ` WHERE PageName = '${pageName}'`;
+    }
+
+    const result = await sql.query(query);
 
     return result.recordset;
   } catch (error) {
     console.error('Error fetching page load times:', error);
     throw error;
-  } finally {
-    await sql.close();
   }
+}
+
+// Generate a random color
+function getRandomColor() {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
 }
 
 // Route for rendering the chart page
 app.get('/', async (req, res) => {
   try {
     const pageNames = await getPageNames();
-    const defaultPageName = pageNames[0];
+    const selectedPage = req.query.page || pageNames[0].PageName;
 
-    // Prepare the page options for the select element
-    const pageOptions = pageNames
-      .map((pageName) => `<option value="${pageName}">${pageName}</option>`)
-      .join('');
+    const pageLoadTimes = await getPageLoadTimes(selectedPage);
+
+    // Prepare the chart data
+    const datasets = []; // Array of datasets for the selected page
+
+    // Iterate over the page load times and populate the datasets array
+    pageLoadTimes.forEach((entry) => {
+      const dataset = {
+        label: selectedPage,
+        data: [entry.LoadTime],
+        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1,
+      };
+      datasets.push(dataset);
+    });
+
+    // Calculate min, max, and average load times
+    const loadTimes = pageLoadTimes.map((entry) => entry.LoadTime);
+    const minLoadTime = Math.min(...loadTimes);
+    const maxLoadTime = Math.max(...loadTimes);
+    const avgLoadTime = loadTimes.reduce((sum, time) => sum + time, 0) / loadTimes.length;
 
     // Create the HTML page with the chart and load time table
     const chartHtml = `
@@ -70,126 +99,70 @@ app.get('/', async (req, res) => {
     <head>
       <title>Page Load Time Chart</title>
       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-      <style>
-        .load-time-table {
-          margin-top: 20px;
-          border-collapse: collapse;
-        }
-        .load-time-table th,
-        .load-time-table td {
-          padding: 8px;
-          text-align: left;
-          border-bottom: 1px solid #ddd;
-        }
-      </style>
     </head>
     <body>
       <div>
-        <label for="pageSelect">Select a Page:</label>
-        <select id="pageSelect" onchange="handlePageChange()">
-          ${pageOptions}
+        <h2>Select a Page:</h2>
+        <select id="pageSelect" onchange="updateChart()">
+          ${pageNames
+            .map((page) => `<option value="${page.PageName}" ${page.PageName === selectedPage ? 'selected' : ''}>${page.PageName}</option>`)
+            .join('')}
         </select>
       </div>
       <canvas id="chartCanvas"></canvas>
-      <table class="load-time-table" id="loadTimeTable">
-        <thead>
+      <div>
+        <h2>Load Time Statistics:</h2>
+        <table>
           <tr>
-            <th>Page Name</th>
-            <th>Min Load Time (ms)</th>
-            <th>Max Load Time (ms)</th>
-            <th>Average Load Time (ms)</th>
+            <th>Minimum Load Time:</th>
+            <td>${minLoadTime} ms</td>
           </tr>
-        </thead>
-        <tbody id="loadTimeTableBody"></tbody>
-      </table>
+          <tr>
+            <th>Maximum Load Time:</th>
+            <td>${maxLoadTime} ms</td>
+          </tr>
+          <tr>
+            <th>Average Load Time:</th>
+            <td>${avgLoadTime.toFixed(2)} ms</td>
+          </tr>
+        </table>
+      </div>
       <script>
-        const pageSelect = document.getElementById('pageSelect');
-        const chartCanvas = document.getElementById('chartCanvas');
-        const loadTimeTableBody = document.getElementById('loadTimeTableBody');
-
-        // Function to handle page change event
-        function handlePageChange() {
-          const selectedPage = pageSelect.value;
-
-          // Fetch the page load times for the selected page
-          fetchPageLoadTimes(selectedPage);
+        function updateChart() {
+          const selectedPage = document.getElementById('pageSelect').value;
+          const url = new URL(window.location.href);
+          url.searchParams.set('page', selectedPage);
+          window.location.href = url.toString();
         }
 
-        // Function to fetch the page load times for a specific page
-        function fetchPageLoadTimes(pageName) {
-          fetch('/loadtimes/' + encodeURIComponent(pageName))
-            .then((response) => response.json())
-            .then((data) => {
-              // Update the chart and load time table with the new data
-              updateChart(data);
-              updateLoadTimeTable(data);
-            })
-            .catch((error) => {
-              console.error('Error fetching page load times:', error);
-            });
-        }
-
-        // Function to update the chart with the page load times
-        function updateChart(data) {
-          const labels = data.map((entry) => entry.Run);
-          const loadTimes = data.map((entry) => entry.LoadTime);
-
-          new Chart(chartCanvas, {
-            type: 'bar',
-            data: {
-              labels: labels,
-              datasets: [
-                {
-                  label: 'Load Time (ms)',
-                  data: loadTimes,
-                  backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                  borderColor: 'rgba(54, 162, 235, 1)',
-                  borderWidth: 1
-                }
-              ]
+        const ctx = document.getElementById('chartCanvas').getContext('2d');
+        const chartConfig = {
+          type: 'bar',
+          data: {
+            labels: ['Load Time (ms)'],
+            datasets: ${JSON.stringify(datasets)},
+          },
+          options: {
+            responsive: true,
+            title: {
+              display: true,
+              text: 'Page Load Time',
             },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true
-                }
-              }
-            }
-          });
-        }
-
-        // Function to update the load time table with the page load times
-        function updateLoadTimeTable(data) {
-          loadTimeTableBody.innerHTML = '';
-
-          const minLoadTime = Math.min(...data.map((entry) => entry.LoadTime));
-          const maxLoadTime = Math.max(...data.map((entry) => entry.LoadTime));
-          const avgLoadTime =
-            data.reduce((total, entry) => total + entry.LoadTime, 0) / data.length;
-
-          const tableRow = document.createElement('tr');
-          const pageNameCell = document.createElement('td');
-          const minLoadTimeCell = document.createElement('td');
-          const maxLoadTimeCell = document.createElement('td');
-          const avgLoadTimeCell = document.createElement('td');
-
-          pageNameCell.textContent = data[0].PageName;
-          minLoadTimeCell.textContent = minLoadTime;
-          maxLoadTimeCell.textContent = maxLoadTime;
-          avgLoadTimeCell.textContent = avgLoadTime.toFixed(2);
-
-          tableRow.appendChild(pageNameCell);
-          tableRow.appendChild(minLoadTimeCell);
-          tableRow.appendChild(maxLoadTimeCell);
-          tableRow.appendChild(avgLoadTimeCell);
-
-          loadTimeTableBody.appendChild(tableRow);
-        }
-
-        // Fetch the page load times for the default page on page load
-        fetchPageLoadTimes('${defaultPageName}');
+            scales: {
+              x: {
+                display: false,
+              },
+              y: {
+                display: true,
+                title: {
+                  display: true,
+                  text: 'Load Time (ms)',
+                },
+              },
+            },
+          },
+        };
+        new Chart(ctx, chartConfig);
       </script>
     </body>
     </html>
@@ -204,19 +177,7 @@ app.get('/', async (req, res) => {
   }
 });
 
-// Route for fetching the page load times
-app.get('/loadtimes/:pageName', async (req, res) => {
-  try {
-    const pageName = req.params.pageName;
-    const loadTimes = await getPageLoadTimes(pageName);
-    res.json(loadTimes);
-  } catch (error) {
-    console.error('Error fetching page load times:', error);
-    res.status(500).json({ error: 'Error fetching page load times' });
-  }
-});
-
 // Start the server
 app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+  console.log('Server is listening on http://localhost:3000');
 });
