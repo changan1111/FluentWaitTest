@@ -1,14 +1,14 @@
 const express = require('express');
-const bodyParser = require('body-parser');
+const bodyparser = require('body-parser');
 const cors = require('cors');
 const sql = require('mssql');
 const Chart = require('chart.js');
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyparser.json());
 
-const dbConfig = {
+var dbConfig = {
   server: '{hostname}\\MSSQLSERVER02',
   database: 'master',
   user: 'sa',
@@ -20,6 +20,7 @@ const dbConfig = {
   },
 };
 
+// Fetch the distinct page names from the SQL Server database
 async function getPageNames() {
   try {
     await sql.connect(dbConfig);
@@ -33,6 +34,7 @@ async function getPageNames() {
   }
 }
 
+// Fetch the page load times from the SQL Server database for the selected page
 async function getPageLoadTimes(pageName) {
   try {
     await sql.connect(dbConfig);
@@ -51,25 +53,30 @@ async function getPageLoadTimes(pageName) {
   }
 }
 
-function getRandomColor() {
-  const letters = '0123456789ABCDEF';
-  let color = '#';
-  for (let i = 0; i < 6; i++) {
-    color += letters[Math.floor(Math.random() * 16)];
+// Calculate the load time statistics for all pages
+async function calculateLoadTimeStatsForAllPages(pageNames) {
+  try {
+    const stats = [];
+
+    for (const page of pageNames) {
+      const pageLoadTimes = await getPageLoadTimes(page.PageName);
+      const loadTimes = pageLoadTimes.map((entry) => entry.LoadTime);
+
+      const minLoadTime = Math.min(...loadTimes);
+      const maxLoadTime = Math.max(...loadTimes);
+      const averageLoadTime = loadTimes.reduce((total, time) => total + time, 0) / loadTimes.length;
+
+      stats.push({ page: page.PageName, minLoadTime, maxLoadTime, averageLoadTime });
+    }
+
+    return stats;
+  } catch (error) {
+    console.error('Error calculating load time stats:', error);
+    throw error;
   }
-  return color;
 }
 
-function calculateAverageLoadTime(pageLoadTimes) {
-  const loadTimes = pageLoadTimes.map((entry) => entry.LoadTime);
-
-  const minLoadTime = Math.min(...loadTimes);
-  const maxLoadTime = Math.max(...loadTimes);
-  const averageLoadTime = loadTimes.reduce((total, time) => total + time, 0) / loadTimes.length;
-
-  return { minLoadTime, maxLoadTime, averageLoadTime };
-}
-
+// Route for rendering the chart page
 app.get('/', async (req, res) => {
   try {
     const pageNames = await getPageNames();
@@ -77,20 +84,20 @@ app.get('/', async (req, res) => {
 
     const pageLoadTimes = await getPageLoadTimes(selectedPage);
 
-    const datasets = [];
-    pageLoadTimes.forEach((entry) => {
-      const dataset = {
-        label: entry.PageName,
-        data: [entry.LoadTime],
-        backgroundColor: getRandomColor(),
-        borderColor: getRandomColor(),
-        fill: false,
-      };
-      datasets.push(dataset);
-    });
+    // Prepare the chart data
+    const datasets = [{
+      label: selectedPage,
+      data: pageLoadTimes.map((entry) => entry.LoadTime),
+      backgroundColor: 'rgba(0, 123, 255, 0.5)',
+      borderColor: 'rgba(0, 123, 255, 1)',
+      borderWidth: 1,
+      fill: false,
+    }];
 
-    const { minLoadTime, maxLoadTime, averageLoadTime } = calculateAverageLoadTime(pageLoadTimes);
+    // Calculate load time statistics for all pages
+    const loadTimeStats = await calculateLoadTimeStatsForAllPages(pageNames);
 
+    // Create the HTML page with the chart, page selection options, and load time statistics table
     const chartHtml = `
     <!DOCTYPE html>
     <html>
@@ -109,18 +116,24 @@ app.get('/', async (req, res) => {
       </div>
       <canvas id="chartCanvas"></canvas>
       <div>
-        <h2>Load Time Statistics for ${selectedPage}:</h2>
+        <h2>Load Time Statistics:</h2>
         <table>
           <tr>
-            <th>Min Load Time (ms)</th>
-            <th>Max Load Time (ms)</th>
+            <th>Page</th>
+            <th>Minimum Load Time (ms)</th>
+            <th>Maximum Load Time (ms)</th>
             <th>Average Load Time (ms)</th>
           </tr>
-          <tr>
-            <td>${minLoadTime}</td>
-            <td>${maxLoadTime}</td>
-            <td>${averageLoadTime.toFixed(2)}</td>
-          </tr>
+          ${loadTimeStats
+            .map((stat) => `
+              <tr>
+                <td>${stat.page}</td>
+                <td>${stat.minLoadTime.toFixed(2)}</td>
+                <td>${stat.maxLoadTime.toFixed(2)}</td>
+                <td>${stat.averageLoadTime.toFixed(2)}</td>
+              </tr>
+            `)
+            .join('')}
         </table>
       </div>
       <script>
@@ -164,6 +177,7 @@ app.get('/', async (req, res) => {
     </html>
     `;
 
+    // Set the response headers
     res.setHeader('Content-Type', 'text/html');
     res.send(chartHtml);
   } catch (error) {
@@ -172,6 +186,7 @@ app.get('/', async (req, res) => {
   }
 });
 
+// Start the server
 app.listen(3000, () => {
-  console.log('Server is listening on http://localhost:3000');
+  console.log(`Server is listening on http://localhost:3000`);
 });
