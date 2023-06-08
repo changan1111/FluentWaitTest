@@ -20,6 +20,15 @@ app.get('/', async (req, res) => {
       pageData[pageName].push(loadTime);
     });
 
+    // Create the datasets for the chart
+    const datasets = Object.entries(pageData).map(([pageName, loadTimes]) => ({
+      label: pageName,
+      data: loadTimes,
+      backgroundColor: getRandomColor(),
+      borderColor: getRandomColor(),
+      fill: false
+    }));
+
     // Create the HTML page with the chart
     const chartHtml = `
     <!DOCTYPE html>
@@ -35,16 +44,8 @@ app.get('/', async (req, res) => {
         const chartConfig = {
           type: 'bar',
           data: {
-            labels: [],
-            datasets: ${JSON.stringify(
-              Object.entries(pageData).map(([pageName, loadTimes]) => ({
-                label: pageName,
-                data: loadTimes,
-                backgroundColor: getRandomColor(),
-                borderColor: getRandomColor(),
-                fill: false
-              }))
-            )}
+            labels: ${JSON.stringify(Object.keys(pageData))},
+            datasets: ${JSON.stringify(datasets)}
           },
           options: {
             responsive: true,
@@ -54,7 +55,10 @@ app.get('/', async (req, res) => {
             },
             scales: {
               x: {
-                display: false // Hide x-axis labels
+                display: true,
+                title: {
+                  display: false,
+                }
               },
               y: {
                 display: true,
