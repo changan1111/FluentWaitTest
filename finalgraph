@@ -16,7 +16,7 @@ app.get('/', async (req, res) => {
     // Prepare the chart data
     const datasets = Object.entries(pageGroups).map(([pageName, loadTimes]) => ({
       label: pageName,
-      data: loadTimes,
+      data: loadTimes.map((loadTime, index) => ({ x: index + 1, y: loadTime })),
       backgroundColor: getRandomColor(),
       borderColor: getRandomColor(),
       fill: false
