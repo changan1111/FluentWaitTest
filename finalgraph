@@ -1,41 +1,80 @@
+const express = require('express');
+const bodyparser = require('body-parser');
+const cors = require('cors');
+const sql = require('mssql');
+const Chart = require('chart.js');
+
+const app = express();
+app.use(cors());
+app.use(bodyparser.json());
+
+var dbConfig = {
+  server: '{hostname}\\MSSQLSERVER02',
+  database: 'master',
+  user: 'sa',
+  password: 'password',
+  options: {
+    encrypt: true,
+    enableArithAbort: true,
+    trustServerCertificate: true,
+  },
+};
+
+// Fetch the page load times from the SQL Server database
+async function getPageLoadTimes() {
+  try {
+    await sql.connect(dbConfig);
+
+    const result = await sql.query('SELECT * FROM Performance ORDER BY PageName, LoadTime');
+
+    return result.recordset;
+  } catch (error) {
+    console.error('Error fetching page load times:', error);
+    throw error;
+  } finally {
+    await sql.close();
+  }
+}
+
+// Generate a random color
+function getRandomColor() {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+}
+
 // Route for rendering the chart page
 app.get('/', async (req, res) => {
   try {
     const pageLoadTimes = await getPageLoadTimes();
 
-    // Group the page load times by page name
-    const pageGroups = {};
+    // Prepare the chart data
+    const datasets = []; // Array of datasets for each page
+
+    let currentPage = null;
+    let currentDataset = null;
+
     pageLoadTimes.forEach((entry) => {
       const pageName = entry.PageName.toLowerCase();
-      if (!pageGroups[pageName]) {
-        pageGroups[pageName] = [];
+
+      if (pageName !== currentPage) {
+        // Create a new dataset for the page
+        currentDataset = {
+          label: entry.PageName,
+          data: [],
+          backgroundColor: getRandomColor(),
+          borderColor: getRandomColor(),
+          fill: false,
+        };
+        datasets.push(currentDataset);
+        currentPage = pageName;
       }
-      pageGroups[pageName].push(entry.LoadTime);
-    });
 
-    // Prepare the chart data
-    const datasets = [];
-    let maxPageCount = 0;
-
-    Object.entries(pageGroups).forEach(([pageName, loadTimes]) => {
-      const bars = loadTimes.map((loadTime, index) => ({
-        x: index + 1,
-        y: loadTime,
-      }));
-
-      const dataset = {
-        label: pageName,
-        data: bars,
-        backgroundColor: getRandomColor(),
-        borderColor: getRandomColor(),
-        fill: false,
-      };
-
-      datasets.push(dataset);
-
-      if (loadTimes.length > maxPageCount) {
-        maxPageCount = loadTimes.length;
-      }
+      // Add the load time to the dataset
+      currentDataset.data.push(entry.LoadTime);
     });
 
     // Create the HTML page with the chart
@@ -53,27 +92,28 @@ app.get('/', async (req, res) => {
         const chartConfig = {
           type: 'bar',
           data: {
-            datasets: ${JSON.stringify(datasets)}
+            labels: [],
+            datasets: ${JSON.stringify(datasets)},
           },
           options: {
             responsive: true,
             title: {
               display: true,
-              text: 'Page Load Time'
+              text: 'Page Load Time',
             },
             scales: {
               x: {
-                display: false
+                display: false,
               },
               y: {
                 display: true,
                 title: {
                   display: true,
-                  text: 'Load Time (ms)'
-                }
-              }
-            }
-          }
+                  text: 'Load Time (ms)',
+                },
+              },
+            },
+          },
         };
         new Chart(ctx, chartConfig);
       </script>
@@ -88,4 +128,9 @@ app.get('/', async (req, res) => {
     console.error('Error generating chart:', error);
     res.status(500).send('Error generating chart');
   }
+});
+
+// Start the server
+app.listen(3000, () => {
+  console.log(`Server is listening on http://localhost:3000`);
 });
