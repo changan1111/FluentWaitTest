@@ -1,5 +1,38 @@
-Copy code
-// Fetch the page load times from the SQL Server database for the selected page
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const sql = require('mssql');
+const Chart = require('chart.js');
+
+const app = express();
+app.use(cors());
+app.use(bodyParser.json());
+
+const dbConfig = {
+  server: '{hostname}\\MSSQLSERVER02',
+  database: 'master',
+  user: 'sa',
+  password: 'password',
+  options: {
+    encrypt: true,
+    enableArithAbort: true,
+    trustServerCertificate: true,
+  },
+};
+
+async function getPageNames() {
+  try {
+    await sql.connect(dbConfig);
+
+    const result = await sql.query('SELECT DISTINCT PageName FROM Performance');
+
+    return result.recordset;
+  } catch (error) {
+    console.error('Error fetching page names:', error);
+    throw error;
+  }
+}
+
 async function getPageLoadTimes(pageName) {
   try {
     await sql.connect(dbConfig);
@@ -18,7 +51,15 @@ async function getPageLoadTimes(pageName) {
   }
 }
 
-// Calculate the average load time for a specific page
+function getRandomColor() {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+}
+
 function calculateAverageLoadTime(pageLoadTimes) {
   const loadTimes = pageLoadTimes.map((entry) => entry.LoadTime);
 
@@ -28,3 +69,109 @@ function calculateAverageLoadTime(pageLoadTimes) {
 
   return { minLoadTime, maxLoadTime, averageLoadTime };
 }
+
+app.get('/', async (req, res) => {
+  try {
+    const pageNames = await getPageNames();
+    const selectedPage = req.query.page || pageNames[0].PageName;
+
+    const pageLoadTimes = await getPageLoadTimes(selectedPage);
+
+    const datasets = [];
+    pageLoadTimes.forEach((entry) => {
+      const dataset = {
+        label: entry.PageName,
+        data: [entry.LoadTime],
+        backgroundColor: getRandomColor(),
+        borderColor: getRandomColor(),
+        fill: false,
+      };
+      datasets.push(dataset);
+    });
+
+    const { minLoadTime, maxLoadTime, averageLoadTime } = calculateAverageLoadTime(pageLoadTimes);
+
+    const chartHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Page Load Time Chart</title>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    </head>
+    <body>
+      <div>
+        <h2>Select a Page:</h2>
+        <select id="pageSelect" onchange="updateChart()">
+          ${pageNames
+            .map((page) => `<option value="${page.PageName}" ${page.PageName === selectedPage ? 'selected' : ''}>${page.PageName}</option>`)
+            .join('')}
+        </select>
+      </div>
+      <canvas id="chartCanvas"></canvas>
+      <div>
+        <h2>Load Time Statistics for ${selectedPage}:</h2>
+        <table>
+          <tr>
+            <th>Min Load Time (ms)</th>
+            <th>Max Load Time (ms)</th>
+            <th>Average Load Time (ms)</th>
+          </tr>
+          <tr>
+            <td>${minLoadTime}</td>
+            <td>${maxLoadTime}</td>
+            <td>${averageLoadTime.toFixed(2)}</td>
+          </tr>
+        </table>
+      </div>
+      <script>
+        function updateChart() {
+          const selectedPage = document.getElementById('pageSelect').value;
+          const url = new URL(window.location.href);
+          url.searchParams.set('page', selectedPage);
+          window.location.href = url.toString();
+        }
+
+        const ctx = document.getElementById('chartCanvas').getContext('2d');
+        const chartConfig = {
+          type: 'bar',
+          data: {
+            labels: ['Load Time (ms)'],
+            datasets: ${JSON.stringify(datasets)},
+          },
+          options: {
+            responsive: true,
+            title: {
+              display: true,
+              text: 'Page Load Time',
+            },
+            scales: {
+              x: {
+                display: false,
+              },
+              y: {
+                display: true,
+                title: {
+                  display: true,
+                  text: 'Load Time (ms)',
+                },
+              },
+            },
+          },
+        };
+        new Chart(ctx, chartConfig);
+      </script>
+    </body>
+    </html>
+    `;
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(chartHtml);
+  } catch (error) {
+    console.error('Error generating chart:', error);
+    res.status(500).send('Error generating chart');
+  }
+});
+
+app.listen(3000, () => {
+  console.log('Server is listening on http://localhost:3000');
+});
