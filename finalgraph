@@ -21,11 +21,16 @@ var dbConfig = {
 };
 
 // Fetch the page load times from the SQL Server database
-async function getPageLoadTimes() {
+async function getPageLoadTimes(pageName) {
   try {
     await sql.connect(dbConfig);
 
-    const result = await sql.query('SELECT * FROM Performance ORDER BY PageName, LoadTime');
+    let query = 'SELECT * FROM Performance';
+    if (pageName) {
+      query += ` WHERE PageName = '${pageName}'`;
+    }
+
+    const result = await sql.query(query);
 
     return result.recordset;
   } catch (error) {
@@ -49,31 +54,23 @@ function getRandomColor() {
 // Route for rendering the chart page
 app.get('/', async (req, res) => {
   try {
-    const pageLoadTimes = await getPageLoadTimes();
+    const pageName = req.query.page || '';
+
+    const pageLoadTimes = await getPageLoadTimes(pageName);
 
     // Prepare the chart data
     const datasets = []; // Array of datasets for each page
 
-    let currentPage = null;
-    let currentDataset = null;
+    const currentDataset = {
+      label: pageName,
+      data: [],
+      backgroundColor: getRandomColor(),
+      borderColor: getRandomColor(),
+      fill: false,
+    };
+    datasets.push(currentDataset);
 
     pageLoadTimes.forEach((entry) => {
-      const pageName = entry.PageName.toLowerCase();
-
-      if (pageName !== currentPage) {
-        // Create a new dataset for the page
-        currentDataset = {
-          label: entry.PageName,
-          data: [],
-          backgroundColor: getRandomColor(),
-          borderColor: getRandomColor(),
-          fill: false,
-        };
-        datasets.push(currentDataset);
-        currentPage = pageName;
-      }
-
-      // Add the load time to the dataset
       currentDataset.data.push(entry.LoadTime);
     });
 
@@ -86,6 +83,15 @@ app.get('/', async (req, res) => {
       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     </head>
     <body>
+      <div>
+        <select id="pageSelect" onchange="updateChart()">
+          <option value="">Select Page</option>
+          <option value="Homepage">Homepage</option>
+          <option value="About">About</option>
+          <option value="Contact">Contact</option>
+          <!-- Add more options for other page names -->
+        </select>
+      </div>
       <canvas id="chartCanvas"></canvas>
       <script>
         const ctx = document.getElementById('chartCanvas').getContext('2d');
@@ -115,7 +121,27 @@ app.get('/', async (req, res) => {
             },
           },
         };
-        new Chart(ctx, chartConfig);
+        const chart = new Chart(ctx, chartConfig);
+
+        function updateChart() {
+          const pageSelect = document.getElementById('pageSelect');
+          const selectedPage = pageSelect.value;
+          if (selectedPage) {
+            chart.data.datasets[0].label = selectedPage;
+            chart.data.datasets[0].data = [];
+            chart.update();
+
+            fetch(`/loadtimes?page=${selectedPage}`)
+              .then((response) => response.json())
+              .then((data) => {
+                chart.data.datasets[0].data = data.map((entry) => entry.LoadTime);
+                chart.update();
+              })
+              .catch((error) => {
+                console.error('Error fetching page load times:', error);
+              });
+          }
+        }
       </script>
     </body>
     </html>
