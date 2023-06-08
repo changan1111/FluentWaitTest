@@ -96,7 +96,12 @@ app.get('/', async (req, res) => {
         <select id="pageSelect" onchange="updateChartAndTable()">
           <option value="">All Pages</option>
           ${pageNames
-            .map((page) => `<option value="${page.PageName}" ${page.PageName === selectedPage ? 'selected' : ''}>${page.PageName}</option>`)
+            .map(
+              (page) =>
+                `<option value="${page.PageName}" ${
+                  page.PageName === selectedPage ? 'selected' : ''
+                }>${page.PageName}</option>`
+            )
             .join('')}
         </select>
       </div>
