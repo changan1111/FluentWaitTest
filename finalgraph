@@ -3,134 +3,58 @@ app.get('/', async (req, res) => {
   try {
     const pageLoadTimes = await getPageLoadTimes();
 
-    // Prepare the chart data grouped by date
-    const dates = []; // Array of dates
-    const dateDatasets = []; // Array of datasets for each date
+    // Prepare the chart data
+    const runLabels = []; // Array of run labels
+    const datasets = []; // Array of datasets for each page
 
-    // Prepare the chart data grouped by page
-    const pageNames = []; // Array of page names
-    const pageDatasets = []; // Array of datasets for each page
+    // Iterate over the page load times and populate the runLabels and datasets arrays
+    pageLoadTimes.forEach((entry, index) => {
+      const runLabel = `Run ${index + 1}`;
 
-    // Iterate over the page load times and populate the dates and dateDatasets arrays
-    // Populate the pageNames and pageDatasets arrays
-    pageLoadTimes.forEach((entry) => {
-      const date = entry.Date.toISOString().split('T')[0];
-      const pageName = entry.PageName.toLowerCase();
+      // Add the run label to the runLabels array
+      runLabels.push(runLabel);
 
-      // Group by date
-      const dateIndex = dates.indexOf(date);
-      let dateDataset = dateDatasets.find((data) => data.label.toLowerCase() === pageName);
-      if (dateIndex === -1) {
-        dates.push(date);
-      }
-      if (!dateDataset) {
-        dateDataset = {
-          label: entry.PageName,
-          data: [],
-          backgroundColor: getRandomColor(),
-          borderColor: getRandomColor(),
-          fill: false
-        };
-        dateDatasets.push(dateDataset);
-      }
-      dateDataset.data[dateIndex] = entry.LoadTime;
-
-      // Group by page
-      const pageIndex = pageNames.indexOf(pageName);
-      let pageDataset = pageDatasets.find((data) => data.label.toLowerCase() === pageName);
-      if (pageIndex === -1) {
-        pageNames.push(pageName);
-      }
-      if (!pageDataset) {
-        pageDataset = {
-          label: entry.PageName,
-          data: [],
-          backgroundColor: getRandomColor(),
-          borderColor: getRandomColor(),
-          fill: false
-        };
-        pageDatasets.push(pageDataset);
-      }
-      pageDataset.data.push(entry.LoadTime);
+      // Create a new dataset for the page
+      const dataset = {
+        label: entry.PageName,
+        data: [entry.LoadTime],
+        backgroundColor: getRandomColor(),
+        borderColor: getRandomColor(),
+        fill: false
+      };
+      datasets.push(dataset);
     });
 
-    // Create the HTML page with the charts
+    // Create the HTML page with the chart
     const chartHtml = `
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Page Load Time Charts</title>
+      <title>Page Load Time Chart</title>
       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     </head>
     <body>
-      <div style="display: flex; justify-content: space-between;">
-
-        <!-- Chart by Date -->
-        <div style="width: 45%; border: 1px solid #ccc; padding: 20px; margin-right: 20px;">
-          <h2>Page Load Time by Date</h2>
-          <canvas id="chartByDateCanvas"></canvas>
-        </div>
-
-        <!-- Chart by Page -->
-        <div style="width: 45%; border: 1px solid #ccc; padding: 20px;">
-          <h2>Page Load Time by Page</h2>
-          <canvas id="chartByPageCanvas"></canvas>
-        </div>
-
-      </div>
+      <canvas id="chartCanvas"></canvas>
       <script>
-        const ctxByDate = document.getElementById('chartByDateCanvas').getContext('2d');
-        const chartByDateConfig = {
-          type: 'line',
-          data: {
-            labels: ${JSON.stringify(dates)},
-            datasets: ${JSON.stringify(dateDatasets)}
-          },
-          options: {
-            responsive: true,
-            title: {
-              display: true,
-              text: 'Page Load Time by Date'
-            },
-            scales: {
-              x: {
-                display: true,
-                title: {
-                  display: true,
-                  text: 'Date'
-                }
-              },
-              y: {
-                display: true,
-                title: {
-                  display: true,
-                  text: 'Load Time (ms)'
-                }
-              }
-            }
-          }
-        };
-        new Chart(ctxByDate, chartByDateConfig);
-
-        const ctxByPage = document.getElementById('chartByPageCanvas').getContext('2d');
-        const chartByPageConfig = {
+        const ctx = document.getElementById('chartCanvas').getContext('2d');
+        const chartConfig = {
           type: 'bar',
           data: {
-            labels: ${JSON.stringify(pageNames)},
-            datasets: ${JSON.stringify(pageDatasets)}
+            labels: ${JSON.stringify(runLabels)},
+            datasets: ${JSON.stringify(datasets)}
           },
           options: {
             responsive: true,
             title: {
               display: true,
-              text: 'Page Load Time by Page'
+              text: 'Page Load Time'
             },
             scales: {
               x: {
                 display: true,
                 title: {
                   display: true,
-                  text: 'Page'
+                  text: 'Run'
                 }
               },
               y: {
@@ -143,7 +67,7 @@ app.get('/', async (req, res) => {
             }
           }
         };
-        new Chart(ctxByPage, chartByPageConfig);
+        new Chart(ctx, chartConfig);
       </script>
     </body>
     </html>
@@ -153,7 +77,7 @@ app.get('/', async (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.send(chartHtml);
   } catch (error) {
-    console.error('Error generating charts:', error);
-    res.status(500).send('Error generating charts');
+    console.error('Error generating chart:', error);
+    res.status(500).send('Error generating chart');
   }
 });
