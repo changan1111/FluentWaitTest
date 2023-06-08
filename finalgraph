@@ -4,26 +4,9 @@ app.get('/', async (req, res) => {
     const pageLoadTimes = await getPageLoadTimes();
 
     // Prepare the chart data
-    const pageData = {}; // Object to store data for each page
-
-    // Iterate over the page load times and populate the pageData object
-    pageLoadTimes.forEach((entry) => {
-      const pageName = entry.PageName;
-      const loadTime = entry.LoadTime;
-
-      // If the page data does not exist, create a new array
-      if (!pageData[pageName]) {
-        pageData[pageName] = [];
-      }
-
-      // Add the load time to the page data array
-      pageData[pageName].push(loadTime);
-    });
-
-    // Create the datasets for the chart
-    const datasets = Object.entries(pageData).map(([pageName, loadTimes]) => ({
-      label: pageName,
-      data: loadTimes,
+    const datasets = pageLoadTimes.map((entry, index) => ({
+      label: `Run ${index + 1}`,
+      data: [entry.LoadTime],
       backgroundColor: getRandomColor(),
       borderColor: getRandomColor(),
       fill: false
@@ -44,7 +27,7 @@ app.get('/', async (req, res) => {
         const chartConfig = {
           type: 'bar',
           data: {
-            labels: ${JSON.stringify(Object.keys(pageData))},
+            labels: [],
             datasets: ${JSON.stringify(datasets)}
           },
           options: {
@@ -55,10 +38,7 @@ app.get('/', async (req, res) => {
             },
             scales: {
               x: {
-                display: true,
-                title: {
-                  display: false,
-                }
+                display: false
               },
               y: {
                 display: true,
