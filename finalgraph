@@ -36,8 +36,6 @@ async function getPageLoadTimes(pageName) {
   } catch (error) {
     console.error('Error fetching page load times:', error);
     throw error;
-  } finally {
-    await sql.close();
   }
 }
 
@@ -54,24 +52,23 @@ function getRandomColor() {
 // Route for rendering the chart page
 app.get('/', async (req, res) => {
   try {
-    const pageName = req.query.page || '';
+    const pageName = req.query.page;
 
     const pageLoadTimes = await getPageLoadTimes(pageName);
 
     // Prepare the chart data
     const datasets = []; // Array of datasets for each page
 
-    const currentDataset = {
-      label: pageName,
-      data: [],
-      backgroundColor: getRandomColor(),
-      borderColor: getRandomColor(),
-      fill: false,
-    };
-    datasets.push(currentDataset);
-
+    // Iterate over the page load times and populate the datasets array
     pageLoadTimes.forEach((entry) => {
-      currentDataset.data.push(entry.LoadTime);
+      const dataset = {
+        label: entry.PageName,
+        data: [entry.LoadTime],
+        backgroundColor: getRandomColor(),
+        borderColor: getRandomColor(),
+        fill: false,
+      };
+      datasets.push(dataset);
     });
 
     // Create the HTML page with the chart
@@ -83,26 +80,22 @@ app.get('/', async (req, res) => {
       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     </head>
     <body>
-      <div>
-        <select id="pageSelect" onchange="updateChart()">
-          <option value="">Select Page</option>
-          <option value="Homepage">Homepage</option>
-          <option value="About">About</option>
-          <option value="Contact">Contact</option>
-          <!-- Add more options for other page names -->
-        </select>
-      </div>
       <canvas id="chartCanvas"></canvas>
       <script>
         const ctx = document.getElementById('chartCanvas').getContext('2d');
         const chartConfig = {
           type: 'bar',
           data: {
-            labels: [],
+            labels: [''],
             datasets: ${JSON.stringify(datasets)},
           },
           options: {
             responsive: true,
+            plugins: {
+              legend: {
+                display: false,
+              },
+            },
             title: {
               display: true,
               text: 'Page Load Time',
@@ -121,27 +114,7 @@ app.get('/', async (req, res) => {
             },
           },
         };
-        const chart = new Chart(ctx, chartConfig);
-
-        function updateChart() {
-          const pageSelect = document.getElementById('pageSelect');
-          const selectedPage = pageSelect.value;
-          if (selectedPage) {
-            chart.data.datasets[0].label = selectedPage;
-            chart.data.datasets[0].data = [];
-            chart.update();
-
-            fetch(`/loadtimes?page=${selectedPage}`)
-              .then((response) => response.json())
-              .then((data) => {
-                chart.data.datasets[0].data = data.map((entry) => entry.LoadTime);
-                chart.update();
-              })
-              .catch((error) => {
-                console.error('Error fetching page load times:', error);
-              });
-          }
-        }
+        new Chart(ctx, chartConfig);
       </script>
     </body>
     </html>
