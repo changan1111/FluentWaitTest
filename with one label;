@@ -1,16 +1,9 @@
-// Prepare the chart data
-const datasets = []; // Array of datasets for the selected page
-
-// Create a single dataset for the selected page
-const dataset = {
-  label: selectedPage,
-  data: pageLoadTimes.map((entry) => entry.LoadTime),
-  backgroundColor: 'rgba(54, 162, 235, 0.6)',
-  borderColor: 'rgba(54, 162, 235, 1)',
-  borderWidth: 1,
-};
-
-datasets.push(dataset);
+// Calculate the load time statistics
+const loadTimes = pageLoadTimes.map((entry) => entry.LoadTime);
+const minLoadTime = Math.min(...loadTimes);
+const maxLoadTime = Math.max(...loadTimes);
+const sumLoadTime = loadTimes.reduce((total, time) => total + time, 0);
+const avgLoadTime = sumLoadTime / loadTimes.length;
 
 // Create the HTML page with the chart and load time table
 const chartHtml = `
@@ -59,7 +52,7 @@ const chartHtml = `
     const chartConfig = {
       type: 'bar',
       data: {
-        labels: ['Load Time (ms)'],
+        labels: [selectedPage],
         datasets: ${JSON.stringify(datasets)},
       },
       options: {
