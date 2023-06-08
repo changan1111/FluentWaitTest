@@ -3,10 +3,20 @@ app.get('/', async (req, res) => {
   try {
     const pageLoadTimes = await getPageLoadTimes();
 
+    // Group the page load times by page name
+    const pageGroups = {};
+    pageLoadTimes.forEach((entry) => {
+      const pageName = entry.PageName.toLowerCase();
+      if (!pageGroups[pageName]) {
+        pageGroups[pageName] = [];
+      }
+      pageGroups[pageName].push(entry.LoadTime);
+    });
+
     // Prepare the chart data
-    const datasets = pageLoadTimes.map((entry, index) => ({
-      label: `Run ${index + 1}`,
-      data: [entry.LoadTime],
+    const datasets = Object.entries(pageGroups).map(([pageName, loadTimes]) => ({
+      label: pageName,
+      data: loadTimes,
       backgroundColor: getRandomColor(),
       borderColor: getRandomColor(),
       fill: false
