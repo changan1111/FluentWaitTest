@@ -1,0 +1,104 @@
+// Create the HTML page with the chart and load time table
+const chartHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Page Load Time Chart</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .load-time-table {
+      margin-top: 20px;
+      border-collapse: collapse;
+      width: 300px;
+    }
+    .load-time-table th,
+    .load-time-table td {
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    .load-time-table th {
+      background-color: #f2f2f2;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <label for="pageSelect">Select a Page:</label>
+    <select id="pageSelect" onchange="handlePageChange()">
+      ${pageOptions} // Replace with the dynamically generated page options
+    </select>
+  </div>
+  <canvas id="chartCanvas"></canvas>
+  <table class="load-time-table" id="loadTimeTable">
+    <thead>
+      <tr>
+        <th>Page Name</th>
+        <th>Min Load Time (ms)</th>
+        <th>Max Load Time (ms)</th>
+        <th>Average Load Time (ms)</th>
+      </tr>
+    </thead>
+    <tbody id="loadTimeTableBody"></tbody>
+  </table>
+  <script>
+    const ctx = document.getElementById('chartCanvas').getContext('2d');
+    const chartConfig = {
+      type: 'bar',
+      data: {
+        labels: ${JSON.stringify(dates)},
+        datasets: ${JSON.stringify(datasets)}
+      },
+      options: {
+        responsive: true,
+        title: {
+          display: true,
+          text: 'Page Load Time'
+        },
+        scales: {
+          x: {
+            display: false
+          },
+          y: {
+            display: true,
+            title: {
+              display: true,
+              text: 'Load Time (ms)'
+            }
+          }
+        }
+      }
+    };
+    new Chart(ctx, chartConfig);
+
+    const loadTimeTableBody = document.getElementById('loadTimeTableBody');
+
+    function handlePageChange() {
+      const selectedPage = document.getElementById('pageSelect').value;
+      const selectedData = datasets.find((data) => data.label.toLowerCase() === selectedPage.toLowerCase());
+      
+      loadTimeTableBody.innerHTML = '';
+
+      const loadTimes = selectedData.data.filter((loadTime) => loadTime !== null);
+      const minLoadTime = Math.min(...loadTimes);
+      const maxLoadTime = Math.max(...loadTimes);
+      const averageLoadTime = loadTimes.reduce((sum, time) => sum + time, 0) / loadTimes.length;
+
+      const tableRow = document.createElement('tr');
+      tableRow.innerHTML = `
+        <td>${selectedPage}</td>
+        <td>${minLoadTime}</td>
+        <td>${maxLoadTime}</td>
+        <td>${averageLoadTime.toFixed(2)}</td>
+      `;
+
+      loadTimeTableBody.appendChild(tableRow);
+    }
+  </script>
+</body>
+</html>
+`;
+
+// Set the response headers
+res.setHeader('Content-Type', 'text/html');
+res.send(chartHtml);
