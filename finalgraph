@@ -18,11 +18,6 @@ app.get('/', async (req, res) => {
     let maxPageCount = 0;
 
     Object.entries(pageGroups).forEach(([pageName, loadTimes]) => {
-      const pageCount = loadTimes.length;
-      if (pageCount > maxPageCount) {
-        maxPageCount = pageCount;
-      }
-
       const bars = loadTimes.map((loadTime, index) => ({
         x: index + 1,
         y: loadTime,
@@ -37,6 +32,10 @@ app.get('/', async (req, res) => {
       };
 
       datasets.push(dataset);
+
+      if (loadTimes.length > maxPageCount) {
+        maxPageCount = loadTimes.length;
+      }
     });
 
     // Create the HTML page with the chart
@@ -54,7 +53,6 @@ app.get('/', async (req, res) => {
         const chartConfig = {
           type: 'bar',
           data: {
-            labels: Array.from({ length: maxPageCount }, (_, i) => i + 1),
             datasets: ${JSON.stringify(datasets)}
           },
           options: {
@@ -65,11 +63,7 @@ app.get('/', async (req, res) => {
             },
             scales: {
               x: {
-                display: true,
-                title: {
-                  display: true,
-                  text: 'Run Number'
-                }
+                display: false
               },
               y: {
                 display: true,
