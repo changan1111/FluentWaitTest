@@ -20,20 +20,6 @@ var dbConfig = {
   },
 };
 
-// Fetch the distinct page names from the SQL Server database
-async function getPageNames() {
-  try {
-    await sql.connect(dbConfig);
-
-    const result = await sql.query('SELECT DISTINCT PageName FROM Performance');
-
-    return result.recordset;
-  } catch (error) {
-    console.error('Error fetching page names:', error);
-    throw error;
-  }
-}
-
 // Fetch the page load times from the SQL Server database for the selected page
 async function getPageLoadTimes(pageName) {
   try {
@@ -53,25 +39,27 @@ async function getPageLoadTimes(pageName) {
   }
 }
 
-// Calculate the load time statistics for all pages
-async function calculateLoadTimeStatsForAllPages(pageNames) {
+// Fetch the summary statistics for the selected page
+async function getPageSummaryStatistics(pageName) {
   try {
-    const stats = [];
+    await sql.connect(dbConfig);
 
-    for (const page of pageNames) {
-      const pageLoadTimes = await getPageLoadTimes(page.PageName);
-      const loadTimes = pageLoadTimes.map((entry) => entry.LoadTime);
+    let query = `
+      SELECT
+        MIN(LoadTime) AS MinLoadTime,
+        MAX(LoadTime) AS MaxLoadTime,
+        AVG(LoadTime) AS AvgLoadTime
+      FROM Performance`;
 
-      const minLoadTime = Math.min(...loadTimes);
-      const maxLoadTime = Math.max(...loadTimes);
-      const averageLoadTime = loadTimes.reduce((total, time) => total + time, 0) / loadTimes.length;
-
-      stats.push({ page: page.PageName, minLoadTime, maxLoadTime, averageLoadTime });
+    if (pageName) {
+      query += ` WHERE PageName = '${pageName}'`;
     }
 
-    return stats;
+    const result = await sql.query(query);
+
+    return result.recordset[0];
   } catch (error) {
-    console.error('Error calculating load time stats:', error);
+    console.error('Error fetching page summary statistics:', error);
     throw error;
   }
 }
@@ -79,25 +67,22 @@ async function calculateLoadTimeStatsForAllPages(pageNames) {
 // Route for rendering the chart page
 app.get('/', async (req, res) => {
   try {
-    const pageNames = await getPageNames();
-    const selectedPage = req.query.page || pageNames[0].PageName;
+    const selectedPage = req.query.page || '';
 
     const pageLoadTimes = await getPageLoadTimes(selectedPage);
+    const summaryStatistics = await getPageSummaryStatistics(selectedPage);
 
     // Prepare the chart data
-    const datasets = [{
-      label: selectedPage,
-      data: pageLoadTimes.map((entry) => entry.LoadTime),
-      backgroundColor: 'rgba(0, 123, 255, 0.5)',
-      borderColor: 'rgba(0, 123, 255, 1)',
-      borderWidth: 1,
-      fill: false,
-    }];
+    const labels = [];
+    const loadTimes = [];
 
-    // Calculate load time statistics for all pages
-    const loadTimeStats = await calculateLoadTimeStatsForAllPages(pageNames);
+    // Iterate over the page load times and populate the labels and loadTimes arrays
+    pageLoadTimes.forEach((entry) => {
+      labels.push(`Run ${entry.Run}`);
+      loadTimes.push(entry.LoadTime);
+    });
 
-    // Create the HTML page with the chart, page selection options, and load time statistics table
+    // Create the HTML page with the chart and summary table
     const chartHtml = `
     <!DOCTYPE html>
     <html>
@@ -108,85 +93,97 @@ app.get('/', async (req, res) => {
     <body>
       <div>
         <h2>Select a Page:</h2>
-        <select id="pageSelect" onchange="updateChart()">
+        <select id="pageSelect" onchange="updateChartAndTable()">
+          <option value="">All Pages</option>
           ${pageNames
             .map((page) => `<option value="${page.PageName}" ${page.PageName === selectedPage ? 'selected' : ''}>${page.PageName}</option>`)
             .join('')}
         </select>
       </div>
       <canvas id="chartCanvas"></canvas>
-      <div>
-        <h2>Load Time Statistics:</h2>
-        <table>
-          <tr>
-            <th>Page</th>
-            <th>Minimum Load Time (ms)</th>
-            <th>Maximum Load Time (ms)</th>
-            <th>Average Load Time (ms)</th>
-          </tr>
-          ${loadTimeStats
-            .map((stat) => `
-              <tr>
-                <td>${stat.page}</td>
-                <td>${stat.minLoadTime.toFixed(2)}</td>
-                <td>${stat.maxLoadTime.toFixed(2)}</td>
-                <td>${stat.averageLoadTime.toFixed(2)}</td>
-              </tr>
-            `)
-            .join('')}
-        </table>
-      </div>
+      <table id="summaryTable" border="1">
+        <tr>
+          <th>Page</th>
+          <th>Min Load Time</th>
+          <th>Max Load Time</th>
+          <th>Average Load Time</th>
+        </tr>
+        <tr>
+          <td>${selectedPage || 'All Pages'}</td>
+          <td>${summaryStatistics.MinLoadTime || '-'}</td>
+          <td>${summaryStatistics.MaxLoadTime || '-'}</td>
+          <td>${summaryStatistics.AvgLoadTime || '-'}</td>
+        </tr>
+      </table>
       <script>
-        function updateChart() {
+        const ctx = document.getElementById('chartCanvas').getContext('2d');
+        let chart;
+
+        function updateChartAndTable() {
           const selectedPage = document.getElementById('pageSelect').value;
-          const url = new URL(window.location.href);
-          url.searchParams.set('page', selectedPage);
-          window.location.href = url.toString();
+
+          fetch(`/loadtimes?page=${selectedPage}`)
+            .then((response) => response.json())
+            .then((data) => {
+              chart.data.labels = data.labels;
+              chart.data.datasets[0].data = data.loadTimes;
+              chart.update();
+
+              document.getElementById('summaryTable').innerHTML = data.summaryTableHtml;
+            })
+            .catch((error) => {
+              console.error('Error fetching page load times:', error);
+            });
         }
 
-        const ctx = document.getElementById('chartCanvas').getContext('2d');
-        const chartConfig = {
-          type: 'bar',
-          data: {
-            labels: ['Load Time (ms)'],
-            datasets: ${JSON.stringify(datasets)},
-          },
-          options: {
-            responsive: true,
-            title: {
-              display: true,
-              text: 'Page Load Time',
-            },
-            scales: {
-              x: {
-                display: false,
-              },
-              y: {
-                display: true,
-                title: {
-                  display: true,
-                  text: 'Load Time (ms)',
+        function createChart() {
+          chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: ${JSON.stringify(labels)},
+              datasets: [
+                {
+                  label: 'Load Time (ms)',
+                  data: ${JSON.stringify(loadTimes)},
+                  backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                  borderColor: 'rgba(54, 162, 235, 1)',
+                  borderWidth: 1,
                 },
+              ],
+            },
+            options: {
+              responsive: true,
+              title: {
+                display: true,
+                text: 'Page Load Time',
+              },
+              scales: {
+                yAxes: [
+                  {
+                    ticks: {
+                      beginAtZero: true,
+                    },
+                  },
+                ],
               },
             },
-          },
-        };
-        new Chart(ctx, chartConfig);
+          });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+          createChart();
+        });
       </script>
     </body>
-    </html>
-    `;
+    </html>`;
 
-    // Set the response headers
-    res.setHeader('Content-Type', 'text/html');
     res.send(chartHtml);
   } catch (error) {
-    console.error('Error generating chart:', error);
-    res.status(500).send('Error generating chart');
+    console.error('Error processing request:', error);
+    res.status(500).send('Internal Server Error');
   }
 });
 
-// Start the server
 app.listen(3000, () => {
-  console.log(`Server is listening on http://localhost:3000`);
+  console.log('Server is running on port 3000');
 });
