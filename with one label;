@@ -1,0 +1,89 @@
+// Prepare the chart data
+const datasets = []; // Array of datasets for the selected page
+
+// Create a single dataset for the selected page
+const dataset = {
+  label: selectedPage,
+  data: pageLoadTimes.map((entry) => entry.LoadTime),
+  backgroundColor: 'rgba(54, 162, 235, 0.6)',
+  borderColor: 'rgba(54, 162, 235, 1)',
+  borderWidth: 1,
+};
+
+datasets.push(dataset);
+
+// Create the HTML page with the chart and load time table
+const chartHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Page Load Time Chart</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div>
+    <h2>Select a Page:</h2>
+    <select id="pageSelect" onchange="updateChart()">
+      ${pageNames
+        .map((page) => `<option value="${page.PageName}" ${page.PageName === selectedPage ? 'selected' : ''}>${page.PageName}</option>`)
+        .join('')}
+    </select>
+  </div>
+  <canvas id="chartCanvas"></canvas>
+  <div>
+    <h2>Load Time Statistics:</h2>
+    <table>
+      <tr>
+        <th>Minimum Load Time:</th>
+        <td>${minLoadTime} ms</td>
+      </tr>
+      <tr>
+        <th>Maximum Load Time:</th>
+        <td>${maxLoadTime} ms</td>
+      </tr>
+      <tr>
+        <th>Average Load Time:</th>
+        <td>${avgLoadTime.toFixed(2)} ms</td>
+      </tr>
+    </table>
+  </div>
+  <script>
+    function updateChart() {
+      const selectedPage = document.getElementById('pageSelect').value;
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', selectedPage);
+      window.location.href = url.toString();
+    }
+
+    const ctx = document.getElementById('chartCanvas').getContext('2d');
+    const chartConfig = {
+      type: 'bar',
+      data: {
+        labels: ['Load Time (ms)'],
+        datasets: ${JSON.stringify(datasets)},
+      },
+      options: {
+        responsive: true,
+        title: {
+          display: true,
+          text: 'Page Load Time',
+        },
+        scales: {
+          x: {
+            display: false,
+          },
+          y: {
+            display: true,
+            title: {
+              display: true,
+              text: 'Load Time (ms)',
+            },
+          },
+        },
+      },
+    };
+    new Chart(ctx, chartConfig);
+  </script>
+</body>
+</html>
+`;
