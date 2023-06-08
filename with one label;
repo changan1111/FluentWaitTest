@@ -1,75 +1,30 @@
-// Create the HTML page with the chart and load time table
-const chartHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Page Load Time Chart</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-  <div>
-    <h2>Select a Page:</h2>
-    <select id="pageSelect" onchange="updateChart()">
-      ${pageNames
-        .map((page) => `<option value="${page.PageName}" ${page.PageName === selectedPage ? 'selected' : ''}>${page.PageName}</option>`)
-        .join('')}
-    </select>
-  </div>
-  <canvas id="chartCanvas"></canvas>
-  <div>
-    <h2>Load Time Statistics:</h2>
-    <table>
-      <tr>
-        <th>Minimum Load Time:</th>
-        <td>${minLoadTime} ms</td>
-      </tr>
-      <tr>
-        <th>Maximum Load Time:</th>
-        <td>${maxLoadTime} ms</td>
-      </tr>
-      <tr>
-        <th>Average Load Time:</th>
-        <td>${avgLoadTime.toFixed(2)} ms</td>
-      </tr>
-    </table>
-  </div>
-  <script>
-    function updateChart() {
-      const selectedPage = document.getElementById('pageSelect').value;
-      const url = new URL(window.location.href);
-      url.searchParams.set('page', selectedPage);
-      window.location.href = url.toString();
+Copy code
+// Fetch the page load times from the SQL Server database for the selected page
+async function getPageLoadTimes(pageName) {
+  try {
+    await sql.connect(dbConfig);
+
+    let query = 'SELECT * FROM Performance';
+    if (pageName) {
+      query += ` WHERE PageName = '${pageName}'`;
     }
 
-    const ctx = document.getElementById('chartCanvas').getContext('2d');
-    const chartConfig = {
-      type: 'bar',
-      data: {
-        labels: ['Load Time (ms)'],
-        datasets: ${JSON.stringify(datasets)},
-      },
-      options: {
-        responsive: true,
-        title: {
-          display: true,
-          text: 'Page Load Time',
-        },
-        scales: {
-          x: {
-            display: false,
-          },
-          y: {
-            display: true,
-            title: {
-              display: true,
-              text: 'Load Time (ms)',
-            },
-          },
-        },
-      },
-    };
-    new Chart(ctx, chartConfig);
-  </script>
-</body>
-</html>
-`;
+    const result = await sql.query(query);
+
+    return result.recordset;
+  } catch (error) {
+    console.error('Error fetching page load times:', error);
+    throw error;
+  }
+}
+
+// Calculate the average load time for a specific page
+function calculateAverageLoadTime(pageLoadTimes) {
+  const loadTimes = pageLoadTimes.map((entry) => entry.LoadTime);
+
+  const minLoadTime = Math.min(...loadTimes);
+  const maxLoadTime = Math.max(...loadTimes);
+  const averageLoadTime = loadTimes.reduce((total, time) => total + time, 0) / loadTimes.length;
+
+  return { minLoadTime, maxLoadTime, averageLoadTime };
+}
