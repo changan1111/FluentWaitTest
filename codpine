@@ -1,0 +1,40 @@
+import testrail.APIClient;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.FileInputStream;
+import java.security.KeyStore;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+
+public class TestRailWithPEMCertificateExample {
+    public static void main(String[] args) throws Exception {
+        // Load the PEM certificate file
+        String pemFilePath = "/path/to/certificate.pem";
+        FileInputStream pemFileInputStream = new FileInputStream(pemFilePath);
+
+        // Create a CertificateFactory and parse the PEM certificate
+        CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+        X509Certificate certificate = (X509Certificate) certFactory.generateCertificate(pemFileInputStream);
+
+        // Create a KeyStore and add the certificate
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(null, null); // Initialize the empty keystore
+        keyStore.setCertificateEntry("testrail_cert", certificate);
+
+        // Create a TrustManagerFactory with the KeyStore
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        trustManagerFactory.init(keyStore);
+
+        // Create an SSLContext and configure it with the TrustManagerFactory
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+
+        // Create an instance of APIClient with the configured SSLContext
+        APIClient client = new APIClient("https://your-testrail-instance.com");
+        client.setSslContext(sslContext);
+
+        // Use the client for making requests to TestRail
+        // Example usage: client.sendGet("get_case/1");
+    }
+}
