@@ -1,0 +1,15 @@
+import org.testng.annotations.BeforeClass;
+
+public class BaseTest {
+    protected TestRailClient testRailClient;
+
+    @BeforeClass
+    public void setUpTestRailClient() throws Exception {
+        String testRailUrl = "https://your-testrail-instance.com/";
+        String testRailUsername = "your-testrail-username";
+        String testRailPassword = "your-testrail-password";
+        String pemFilePath = "path/to/your.pem";
+
+        testRailClient = new TestRailClient(testRailUrl, testRailUsername, testRailPassword, pemFilePath);
+    }
+}
