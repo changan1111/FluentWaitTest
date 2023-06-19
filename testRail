@@ -59,3 +59,21 @@ public class TestRailClient {
         testRail.results().addForCase(testCaseId, result, customResultFields).execute();
     }
 }
+
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import java.security.KeyStore;
+import java.security.SecureRandom;
+
+public class SSLContextUtils {
+    public static SSLContext loadSSLContext(KeyStore keyStore, String password) throws Exception {
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        keyManagerFactory.init(keyStore, password != null ? password.toCharArray() : null);
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(keyManagerFactory.getKeyManagers(), null, new SecureRandom());
+
+        return sslContext;
+    }
+}
