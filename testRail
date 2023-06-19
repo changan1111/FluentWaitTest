@@ -1,48 +1,22 @@
-import com.gurock.testrail.APIClient;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.conn.ssl.SSLContextBuilder;
-import org.apache.http.ssl.SSLContexts;
+import com.codepine.api.testrail.TestRail;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.security.KeyStore;
 
 public class TestRailClient {
-    private final APIClient client;
+    private final TestRail testRail;
 
     public TestRailClient(String url, String username, String password, String crtFilePath) throws Exception {
-        client = new APIClient(url);
-        client.setUser(username);
-        client.setPassword(password);
-
-        // Load the .crt certificate
-        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-        FileInputStream crtInputStream = new FileInputStream(new File(crtFilePath));
-        keyStore.load(null, null);
-        keyStore.setCertificateEntry("alias", CertificateFactory.getInstance("X.509").generateCertificate(crtInputStream));
-
-        // Create SSLContext with the loaded certificate
-        SSLContext sslContext = SSLContextBuilder.create()
-                .loadKeyMaterial(keyStore, null) // No password
+        testRail = TestRail.builder(url, username, password)
+                .sslContext(SslUtils.customSslContextFromCertFile(new File(crtFilePath)))
                 .build();
-
-        // Create a custom SSLConnectionSocketFactory to use the SSLContext
-        SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext,
-                NoopHostnameVerifier.INSTANCE);
-
-        // Set the custom socket factory for the TestRail API client
-        client.setHttpClient(org.apache.http.impl.client.HttpClients.custom()
-                .setSSLSocketFactory(sslSocketFactory)
-                .build());
     }
 
     // Example method to demonstrate API usage
     public void getTestCases() throws Exception {
         // Make an API call
-        JSONObject response = client.sendGet("get_cases/1");
+        testRail.caseApi().getCases(1);
 
         // Process the response
-        System.out.println(response);
+        // ...
     }
 }
