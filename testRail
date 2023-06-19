@@ -1,13 +1,38 @@
 import com.codepine.api.testrail.TestRail;
+import org.apache.http.HttpHost;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLContextBuilder;
+import org.apache.http.ssl.SSLContexts;
 
-import java.io.File;
+import java.io.FileInputStream;
+import java.security.KeyStore;
+import java.security.cert.CertificateFactory;
 
 public class TestRailClient {
     private final TestRail testRail;
 
     public TestRailClient(String url, String username, String password, String crtFilePath) throws Exception {
         testRail = TestRail.builder(url, username, password)
-                .sslContext(SslUtils.customSslContextFromCertFile(new File(crtFilePath)))
+                .httpClientConfig(httpClientBuilder -> {
+                    try {
+                        // Load the .crt certificate
+                        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+                        FileInputStream crtInputStream = new FileInputStream(crtFilePath);
+                        keyStore.load(null, null);
+                        keyStore.setCertificateEntry("alias", CertificateFactory.getInstance("X.509").generateCertificate(crtInputStream));
+
+                        // Create SSLContext with the loaded certificate
+                        SSLContext sslContext = SSLContextBuilder.create()
+                                .loadKeyMaterial(keyStore, null) // No password
+                                .build();
+
+                        // Configure SSL/TLS connection
+                        httpClientBuilder.setSSLContext(sslContext);
+                        httpClientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                })
                 .build();
     }
 
