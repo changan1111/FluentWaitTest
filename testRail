@@ -1,79 +1,59 @@
-import com.codepine.api.testrail.TestRail;
-import com.codepine.api.testrail.model.Result;
-import com.codepine.api.testrail.model.ResultField;
-import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.impl.client.HttpClientBuilder;
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 import java.io.FileInputStream;
 import java.security.KeyStore;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.util.List;
+import com.codepine.api.testrail.TestRail;
+import com.codepine.api.testrail.model.Result;
 
 public class TestRailClient {
-    private final TestRail testRail;
-
-    public TestRailClient(String url, String username, String password, String crtFilePath, String crtPassword) throws Exception {
-        KeyStore clientStore = KeyStore.getInstance("PKCS12");
-        clientStore.load(new FileInputStream(crtFilePath), crtPassword.toCharArray());
-
-        SSLContext sslContext = SSLContextUtils.loadSSLContext(clientStore, crtPassword);
-
-        SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
-
-        HttpClientBuilder httpClientBuilder = HttpClientBuilder.create()
-                .setSSLSocketFactory(socketFactory);
-
-        testRail = TestRail.builder(url, username, password)
-                .httpClientConfig(httpClientBuilder)
-                .build();
-    }
+    private static final String CERTIFICATE_FILE_PATH = "path/to/your.crt";
+    private static final String TESTRAIL_API_URL = "https://your-testrail-instance.com/api/v2/";
+    private static final String TESTRAIL_USERNAME = "your-testrail-username";
+    private static final String TESTRAIL_PASSWORD = "your-testrail-password";
+    private static final int TEST_CASE_ID = 43662;
+    private static final int RESULT_STATUS_ID = 5;
 
     @BeforeSuite
-    public void initializeTestRailClient() throws Exception {
-        String testRailUrl = "https://your-testrail-instance.com/";
-        String testRailUsername = "your-testrail-username";
-        String testRailPassword = "your-testrail-password";
-        String pemFilePath = "path/to/your.pem";
-        String crtFilePath = "path/to/your.crt";
-        String crtPassword = "your-crt-password";
+    public void setUpSSLContext() throws Exception {
+        // Load the certificate file
+        FileInputStream fis = new FileInputStream(CERTIFICATE_FILE_PATH);
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        X509Certificate cert = (X509Certificate) cf.generateCertificate(fis);
 
-        testRailClient = new TestRailClient(testRailUrl, testRailUsername, testRailPassword, crtFilePath, crtPassword);
-    }
+        // Create a KeyStore and add the certificate to it
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(null, null);
+        keyStore.setCertificateEntry("certificate", cert);
 
-    @AfterSuite
-    public void closeTestRailClient() {
-        // Perform any cleanup or closing operations if needed
+        // Create a TrustManagerFactory with the KeyStore
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        tmf.init(keyStore);
+
+        // Create an SSLContext with the TrustManagerFactory
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, tmf.getTrustManagers(), null);
+
+        // Set the default SSLContext for HttpsURLConnection
+        HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
     }
 
     @Test
     public void updateTestCase() throws Exception {
-        int testCaseId = 43662;
-        int resultStatusId = 5;
+        // Create TestRail instance
+        TestRail testRail = TestRail.builder(TESTRAIL_API_URL, TESTRAIL_USERNAME, TESTRAIL_PASSWORD)
+                .applicationName("appname")
+                .build();
 
-        List<ResultField> customResultFields = testRail.resultFields().list().execute();
-        Result result = new Result().setStatusId(resultStatusId);
+        // Update test result
+        Result result = new Result();
+        result.setStatusId(RESULT_STATUS_ID);
 
-        testRail.results().addForCase(testCaseId, result, customResultFields).execute();
-    }
-}
-
-
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import java.security.KeyStore;
-import java.security.SecureRandom;
-
-public class SSLContextUtils {
-    public static SSLContext loadSSLContext(KeyStore keyStore, String password) throws Exception {
-        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-        keyManagerFactory.init(keyStore, password != null ? password.toCharArray() : null);
-
-        SSLContext sslContext = SSLContext.getInstance("TLS");
-        sslContext.init(keyManagerFactory.getKeyManagers(), null, new SecureRandom());
-
-        return sslContext;
+        testRail.results().addForCase(TEST_CASE_ID, result).execute();
     }
 }
