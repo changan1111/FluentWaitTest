@@ -1,20 +1,38 @@
 import com.codepine.api.testrail.TestRail;
+import com.codepine.api.testrail.model.Result;
+import com.codepine.api.testrail.model.ResultField;
+import com.codepine.api.testrail.model.Tests;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.client.HttpClientBuilder;
+import javax.net.ssl.SSLContext;
+import java.io.FileInputStream;
+import java.security.KeyStore;
 
 public class TestRailClient {
     private final TestRail testRail;
 
-    public TestRailClient(String url, String username, String password, String crtFilePath) throws Exception {
-        System.setProperty("javax.net.ssl.trustStore", crtFilePath);
+    public TestRailClient(String url, String username, String password, String crtFilePath, String crtPassword) throws Exception {
+        KeyStore clientStore = KeyStore.getInstance("PKCS12");
+        clientStore.load(new FileInputStream(crtFilePath), crtPassword.toCharArray());
 
-        testRail = TestRail.builder(url, username, password).build();
+        SSLContext sslContext = SSLContextUtils.loadSSLContext(clientStore, crtPassword);
+
+        SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
+
+        HttpClientBuilder httpClientBuilder = HttpClientBuilder.create()
+                .setSSLSocketFactory(socketFactory);
+
+        testRail = TestRail.builder(url, username, password)
+                .httpClientConfig(httpClientBuilder)
+                .build();
     }
 
     // Example method to demonstrate API usage
-    public void getTestCases() throws Exception {
-        // Make an API call
-        testRail.caseApi().getCases(1);
+    public void updateTestCase(int testCaseId, int resultStatusId) throws Exception {
+        List<ResultField> customResultFields = testRail.resultFields().list().execute();
+        Result result = new Result().setStatusId(resultStatusId);
 
-        // Process the response
-        // ...
+        testRail.results().addForCase(testCaseId, result, customResultFields).execute();
     }
 }
