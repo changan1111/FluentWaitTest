@@ -1,13 +1,16 @@
 import com.codepine.api.testrail.TestRail;
 import com.codepine.api.testrail.model.Result;
 import com.codepine.api.testrail.model.ResultField;
-import com.codepine.api.testrail.model.Tests;
+import org.testng.annotations.AfterSuite;
+import org.testng.annotations.BeforeSuite;
+import org.testng.annotations.Test;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.HttpClientBuilder;
 import javax.net.ssl.SSLContext;
 import java.io.FileInputStream;
 import java.security.KeyStore;
+import java.util.List;
 
 public class TestRailClient {
     private final TestRail testRail;
@@ -28,8 +31,28 @@ public class TestRailClient {
                 .build();
     }
 
-    // Example method to demonstrate API usage
-    public void updateTestCase(int testCaseId, int resultStatusId) throws Exception {
+    @BeforeSuite
+    public void initializeTestRailClient() throws Exception {
+        String testRailUrl = "https://your-testrail-instance.com/";
+        String testRailUsername = "your-testrail-username";
+        String testRailPassword = "your-testrail-password";
+        String pemFilePath = "path/to/your.pem";
+        String crtFilePath = "path/to/your.crt";
+        String crtPassword = "your-crt-password";
+
+        testRailClient = new TestRailClient(testRailUrl, testRailUsername, testRailPassword, crtFilePath, crtPassword);
+    }
+
+    @AfterSuite
+    public void closeTestRailClient() {
+        // Perform any cleanup or closing operations if needed
+    }
+
+    @Test
+    public void updateTestCase() throws Exception {
+        int testCaseId = 43662;
+        int resultStatusId = 5;
+
         List<ResultField> customResultFields = testRail.resultFields().list().execute();
         Result result = new Result().setStatusId(resultStatusId);
 
