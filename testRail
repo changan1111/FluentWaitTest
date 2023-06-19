@@ -1,34 +1,12 @@
 import com.codepine.api.testrail.TestRail;
-import com.codepine.api.testrail.TestRailClientConfig;
-
-import javax.net.ssl.SSLContext;
-import java.io.FileInputStream;
-import java.security.KeyStore;
-import java.security.cert.CertificateFactory;
 
 public class TestRailClient {
     private final TestRail testRail;
 
     public TestRailClient(String url, String username, String password, String crtFilePath) throws Exception {
-        TestRailClientConfig clientConfig = new TestRailClientConfig(url, username, password);
+        System.setProperty("javax.net.ssl.trustStore", crtFilePath);
 
-        // Load the .crt certificate
-        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-        FileInputStream crtInputStream = new FileInputStream(crtFilePath);
-        keyStore.load(null, null);
-        keyStore.setCertificateEntry("alias", CertificateFactory.getInstance("X.509").generateCertificate(crtInputStream));
-
-        // Create SSLContext with the loaded certificate
-        SSLContext sslContext = SSLContext.getInstance("TLS");
-        sslContext.init(null, null, null);
-        sslContext.init(null, null, null);
-        sslContext.init(null, null, null);
-        sslContext.init(null, null, null);
-        sslContext.init(null, null, null);
-
-        clientConfig.setSslContext(sslContext);
-
-        testRail = TestRail.builder(clientConfig).build();
+        testRail = TestRail.builder(url, username, password).build();
     }
 
     // Example method to demonstrate API usage
