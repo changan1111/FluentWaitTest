@@ -2,17 +2,12 @@ import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
 import java.io.FileInputStream;
 import java.security.KeyStore;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.util.List;
-import com.codepine.api.testrail.TestRail;
-import com.codepine.api.testrail.model.Result;
 
 public class TestRailClient {
-    private static final String CERTIFICATE_FILE_PATH = "path/to/your.crt";
+    private static final String KEYSTORE_FILE_PATH = "path/to/your.keystore";
+    private static final String KEYSTORE_PASSWORD = "your-keystore-password";
     private static final String TESTRAIL_API_URL = "https://your-testrail-instance.com/api/v2/";
     private static final String TESTRAIL_USERNAME = "your-testrail-username";
     private static final String TESTRAIL_PASSWORD = "your-testrail-password";
@@ -21,15 +16,10 @@ public class TestRailClient {
 
     @BeforeSuite
     public void setUpSSLContext() throws Exception {
-        // Load the certificate file
-        FileInputStream fis = new FileInputStream(CERTIFICATE_FILE_PATH);
-        CertificateFactory cf = CertificateFactory.getInstance("X.509");
-        X509Certificate cert = (X509Certificate) cf.generateCertificate(fis);
-
-        // Create a KeyStore and add the certificate to it
+        // Load the keystore file
+        FileInputStream fis = new FileInputStream(KEYSTORE_FILE_PATH);
         KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-        keyStore.load(null, null);
-        keyStore.setCertificateEntry("certificate", cert);
+        keyStore.load(fis, KEYSTORE_PASSWORD.toCharArray());
 
         // Create a TrustManagerFactory with the KeyStore
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
